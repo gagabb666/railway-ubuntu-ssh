@@ -67,9 +67,9 @@ rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1
 # 7. Start TigerVNC Server on Display :1 (Port 5901)
 echo "🖥️ Starting XFCE4 Desktop on Display :1..."
 if command -v tigervncserver &>/dev/null; then
-    tigervncserver :1 -geometry 1920x1080 -depth 24 -localhost no -SecurityTypes None || true
+    tigervncserver :1 -geometry 1920x1080 -depth 24 -localhost yes -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd
 elif command -v vncserver &>/dev/null; then
-    vncserver :1 -geometry 1920x1080 -depth 24 -localhost no -SecurityTypes None || true
+    vncserver :1 -geometry 1920x1080 -depth 24 -localhost yes -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd
 fi
 
 # 8. Setup noVNC index redirect
