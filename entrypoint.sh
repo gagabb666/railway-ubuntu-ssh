@@ -4,11 +4,11 @@ set -e
 # 1. Setup root password
 if [ -n "$SSH_PASSWORD" ]; then
     echo "root:$SSH_PASSWORD" | chpasswd
-    echo "🔒 SSH root password set from environment variable (SSH_PASSWORD)."
+    echo "🔒 SSH root password set from environment variable."
 else
     DEFAULT_PASS="UbuntuRailway2026!"
     echo "root:$DEFAULT_PASS" | chpasswd
-    echo "⚠️ No SSH_PASSWORD variable supplied. Default password set: $DEFAULT_PASS"
+    echo "⚠️ No SSH_PASSWORD supplied. Default password set: $DEFAULT_PASS"
 fi
 
 # 2. Setup SSH Authorized Keys if provided
@@ -18,10 +18,25 @@ if [ -n "$SSH_AUTHORIZED_KEYS" ]; then
     echo "🔑 Added SSH public key to /root/.ssh/authorized_keys."
 fi
 
-# 3. Setup Web Terminal Credentials
+# 3. Determine Ports avoiding any collision
+# SSH will listen on Port 22 and Port 2222
+SSH_PORT="22"
+
+# If Railway passed PORT=22 to the container for HTTP, set Web Terminal to 8080 so SSH owns 22
+if [ "$PORT" = "22" ] || [ -z "$PORT" ]; then
+    WEB_PORT="8080"
+else
+    WEB_PORT="$PORT"
+fi
+
 WEB_USER="${WEB_TERMINAL_USER:-root}"
 WEB_PASS="${WEB_TERMINAL_PASSWORD:-${SSH_PASSWORD:-UbuntuRailway2026!}}"
-PORT_NUM="${PORT:-8080}"
+
+# Ensure sshd privilege directory exists
+mkdir -p /var/run/sshd
+
+# Configure sshd to listen on both 22 and 2222
+sed -i 's/^#\?Port .*/Port 22\nPort 2222/' /etc/ssh/sshd_config || echo -e "Port 22\nPort 2222" >> /etc/ssh/sshd_config
 
 # 4. Generate dynamic supervisord configuration
 cat <<EOF > /etc/supervisor/conf.d/supervisord.conf
@@ -41,7 +56,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:ttyd]
-command=/usr/local/bin/ttyd -p ${PORT_NUM} -c ${WEB_USER}:${WEB_PASS} -W bash
+command=/usr/local/bin/ttyd -p ${WEB_PORT} -c ${WEB_USER}:${WEB_PASS} -W bash
 autostart=true
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -52,8 +67,8 @@ EOF
 
 echo "======================================================"
 echo "🚀 Ubuntu 24.04 LTS VPS Container is starting!"
-echo "📡 Web Terminal listening on port: $PORT_NUM (User: $WEB_USER)"
-echo "🔑 SSH Server listening on port: 22"
+echo "🔑 SSH Server listening on ports: 22 & 2222"
+echo "📡 Web Terminal listening on port: $WEB_PORT"
 echo "======================================================"
 
 exec "$@"
