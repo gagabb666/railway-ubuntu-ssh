@@ -49,6 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     x11-utils \
     tigervnc-standalone-server \
     tigervnc-common \
+    tigervnc-tools \
     novnc \
     websockify \
     firefox \

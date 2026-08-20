@@ -42,9 +42,13 @@ echo "🚀 Starting OpenSSH Server on port 22..."
 /usr/sbin/sshd -D -e &
 
 # 6. Configure VNC Server & XFCE4 Startup
-VNC_PASS="${PASS:0:8}" # VNC protocol supports up to 8 chars
-echo "$VNC_PASS" | vncpasswd -f > /root/.vnc/passwd
-chmod 600 /root/.vnc/passwd
+VNC_PASS="${PASS:0:8}"
+if command -v tigervncpasswd &>/dev/null; then
+    echo "$VNC_PASS" | tigervncpasswd -f > /root/.vnc/passwd
+elif command -v vncpasswd &>/dev/null; then
+    echo "$VNC_PASS" | vncpasswd -f > /root/.vnc/passwd
+fi
+[ -f /root/.vnc/passwd ] && chmod 600 /root/.vnc/passwd
 
 cat << 'EOF' > /root/.vnc/xstartup
 #!/usr/bin/env bash
@@ -61,10 +65,14 @@ chmod +x /root/.vnc/xstartup
 rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1
 
 # 7. Start TigerVNC Server on Display :1 (Port 5901)
-echo "🖥️ Starting XFCE4 TigerVNC Desktop on Display :1..."
-vncserver :1 -geometry 1920x1080 -depth 24 -localhost no
+echo "🖥️ Starting XFCE4 Desktop on Display :1..."
+if command -v tigervncserver &>/dev/null; then
+    tigervncserver :1 -geometry 1920x1080 -depth 24 -localhost no -SecurityTypes None || true
+elif command -v vncserver &>/dev/null; then
+    vncserver :1 -geometry 1920x1080 -depth 24 -localhost no -SecurityTypes None || true
+fi
 
-# 8. Setup noVNC Autoconnect HTML redirect
+# 8. Setup noVNC index redirect
 ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
 WEB_PORT="${PORT:-8080}"
