@@ -21,7 +21,7 @@ if [ -n "$SSH_AUTHORIZED_KEYS" ]; then
     echo "🔑 Added SSH public key."
 fi
 
-# 4. Write clean, permissive sshd_config
+# 4. Write clean sshd_config on Port 22
 rm -rf /etc/ssh/sshd_config.d/*
 cat << 'EOF' > /etc/ssh/sshd_config
 Port 22
@@ -37,19 +37,24 @@ AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 
-# 5. Start OpenSSH Server in background
+# 5. Start OpenSSH Server in background on Port 22
 echo "🚀 Starting OpenSSH Server on port 22..."
 /usr/sbin/sshd -D -e &
+SSH_PID=$!
 
-# 6. Determine Web Terminal port & credentials
-HTTP_PORT="${PORT:-8080}"
+# 6. Start Web Terminal on port 8080 (NEVER port 22)
+WEB_PORT="8080"
+if [ -n "$PORT" ] && [ "$PORT" != "22" ]; then
+    WEB_PORT="$PORT"
+fi
+
 USER_NAME="${WEB_TERMINAL_USER:-root}"
 
 echo "======================================================"
 echo "🚀 Ubuntu 24.04 LTS VPS Container is online!"
 echo "🔑 SSH Server listening on port: 22"
-echo "📡 Web Terminal listening on port: $HTTP_PORT"
+echo "📡 Web Terminal listening on port: $WEB_PORT"
 echo "======================================================"
 
-# 7. Start Web Terminal in foreground (PID 1)
-exec /usr/local/bin/ttyd -p "${HTTP_PORT}" -c "${USER_NAME}:${PASS}" -W bash
+# 7. Start Web Terminal in foreground
+exec /usr/local/bin/ttyd -p "${WEB_PORT}" -c "${USER_NAME}:${PASS}" -W bash
