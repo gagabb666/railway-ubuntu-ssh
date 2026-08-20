@@ -1,14 +1,14 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Muhammad Farzaneh"
-LABEL description="Ubuntu 24.04 LTS Desktop GUI (XFCE4 + noVNC + RDP + SSH) for Railway"
+LABEL description="Ubuntu 24.04 LTS Desktop GUI (XFCE4 + Google Chrome + RDP + VNC + SSH) for Railway"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV DISPLAY=:1
 
-# Install locales, OpenSSH, XRDP, XFCE4 desktop, TigerVNC, noVNC, and utilities
+# Install locales, OpenSSH, XRDP, XFCE4 desktop, TigerVNC, noVNC, and developer tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     locales \
     openssh-server \
@@ -55,9 +55,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     novnc \
     websockify \
     firefox \
+    fonts-liberation \
+    xdg-utils \
     && locale-gen en_US.UTF-8 \
     && adduser xrdp ssl-cert \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome Stable
+RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ./google-chrome-stable_current_amd64.deb \
+    && rm -f google-chrome-stable_current_amd64.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure Google Chrome to run smoothly as root
+RUN sed -i 's|Exec=/usr/bin/google-chrome-stable %U|Exec=/usr/bin/google-chrome-stable --no-sandbox --test-type %U|g' /usr/share/applications/google-chrome.desktop \
+    && cp /usr/share/applications/google-chrome.desktop /etc/skel/Desktop/ 2>/dev/null || true
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
