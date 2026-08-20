@@ -40,7 +40,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iproute2 \
     procps \
     lsof \
-    supervisor \
     && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -48,9 +47,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -sLo /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64 \
     && chmod +x /usr/local/bin/ttyd
 
-# Copy entrypoint script and supervisord configuration
+# Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Expose standard SSH port (22) and web terminal default (8080)
@@ -59,4 +57,3 @@ EXPOSE 22 8080
 WORKDIR /root
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
