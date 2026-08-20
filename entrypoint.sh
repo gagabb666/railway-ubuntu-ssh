@@ -14,21 +14,13 @@ chmod 0755 /run/sshd /var/run/sshd /var/run/xrdp
 chmod 0700 /root/.ssh /root/.vnc
 ssh-keygen -A
 
-# 3. Setup Desktop Shortcuts (Google Chrome, Firefox & Terminal)
-if [ -f /usr/share/applications/google-chrome.desktop ]; then
-    cp /usr/share/applications/google-chrome.desktop /root/Desktop/
-    chmod +x /root/Desktop/google-chrome.desktop
-fi
-
-if [ -f /usr/share/applications/firefox.desktop ]; then
-    cp /usr/share/applications/firefox.desktop /root/Desktop/
-    chmod +x /root/Desktop/firefox.desktop
-fi
-
-if [ -f /usr/share/applications/xfce4-terminal.desktop ]; then
-    cp /usr/share/applications/xfce4-terminal.desktop /root/Desktop/
-    chmod +x /root/Desktop/xfce4-terminal.desktop
-fi
+# 3. Setup Desktop Shortcuts (Chrome, Firefox, Falkon & Terminal)
+for app in google-chrome.desktop firefox.desktop org.kde.falkon.desktop xfce4-terminal.desktop; do
+    if [ -f "/usr/share/applications/$app" ]; then
+        cp "/usr/share/applications/$app" /root/Desktop/
+        chmod +x "/root/Desktop/$app"
+    fi
+done
 
 # 4. Setup SSH Authorized Keys if provided
 if [ -n "$SSH_AUTHORIZED_KEYS" ]; then
@@ -106,7 +98,7 @@ ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
 WEB_PORT="${PORT:-8080}"
 echo "======================================================"
-echo "🚀 Ubuntu 24.04 Container (Chrome + Firefox + RDP + VNC + SSH) is online!"
+echo "🚀 Ubuntu 24.04 Container (Chrome + Firefox + Falkon + RDP + VNC + SSH) is online!"
 echo "🔑 SSH Server listening on port: 22"
 echo "🖥️ XRDP Server listening on port: 3389"
 echo "🌐 Web Desktop (noVNC) listening on port: $WEB_PORT"
