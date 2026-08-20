@@ -1,13 +1,14 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Muhammad Farzaneh"
-LABEL description="Ubuntu 24.04 LTS VPS Container with SSH and Web Terminal for Railway"
+LABEL description="Ubuntu 24.04 LTS Desktop GUI (XFCE4 + noVNC + SSH) for Railway"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
+ENV DISPLAY=:1
 
-# Install locales, OpenSSH server, web terminal (ttyd), and common developer/admin tools
+# Install locales, OpenSSH, XFCE4 desktop, TigerVNC, noVNC, and developer utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     locales \
     openssh-server \
@@ -40,19 +41,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iproute2 \
     procps \
     lsof \
+    xfce4 \
+    xfce4-goodies \
+    xfce4-terminal \
+    dbus-x11 \
+    x11-xserver-utils \
+    x11-utils \
+    tigervnc-standalone-server \
+    tigervnc-common \
+    novnc \
+    websockify \
+    firefox \
     && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
-
-# Install ttyd (web-based terminal)
-RUN curl -sLo /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64 \
-    && chmod +x /usr/local/bin/ttyd
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Expose standard SSH port (22) and web terminal default (8080)
-EXPOSE 22 8080
+# Expose SSH (22), VNC (5901), and Web Desktop (8080)
+EXPOSE 22 5901 8080
 
 WORKDIR /root
 
