@@ -1,14 +1,14 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Muhammad Farzaneh"
-LABEL description="Ubuntu 24.04 LTS Desktop GUI (XFCE4 + Google Chrome + RDP + VNC + SSH) for Railway"
+LABEL description="Ubuntu 24.04 LTS Desktop GUI (XFCE4 + Chrome + Firefox + RDP + VNC + SSH) for Railway"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV DISPLAY=:1
 
-# Install locales, OpenSSH, XRDP, XFCE4 desktop, TigerVNC, noVNC, and developer tools
+# Install locales, OpenSSH, XRDP, XFCE4 desktop, TigerVNC, noVNC, Firefox, and developer tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     locales \
     openssh-server \
@@ -68,9 +68,13 @@ RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd6
     && rm -f google-chrome-stable_current_amd64.deb \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure Google Chrome to run smoothly as root
-RUN sed -i 's|Exec=/usr/bin/google-chrome-stable %U|Exec=/usr/bin/google-chrome-stable --no-sandbox --test-type %U|g' /usr/share/applications/google-chrome.desktop \
-    && cp /usr/share/applications/google-chrome.desktop /etc/skel/Desktop/ 2>/dev/null || true
+# Create bulletproof Chrome wrapper to fix "Oh Snap Error Code 5" (/dev/shm limitation & sandbox in Docker)
+RUN echo '#!/usr/bin/env bash' > /usr/local/bin/google-chrome-wrapper \
+    && echo 'exec /opt/google/chrome/google-chrome --no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run --no-default-browser-check "$@"' >> /usr/local/bin/google-chrome-wrapper \
+    && chmod +x /usr/local/bin/google-chrome-wrapper \
+    && ln -sf /usr/local/bin/google-chrome-wrapper /usr/bin/google-chrome \
+    && ln -sf /usr/local/bin/google-chrome-wrapper /usr/bin/google-chrome-stable \
+    && sed -i 's|Exec=/usr/bin/google-chrome-stable %U|Exec=/usr/local/bin/google-chrome-wrapper %U|g' /usr/share/applications/google-chrome.desktop
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

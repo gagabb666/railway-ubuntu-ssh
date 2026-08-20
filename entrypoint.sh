@@ -14,10 +14,15 @@ chmod 0755 /run/sshd /var/run/sshd /var/run/xrdp
 chmod 0700 /root/.ssh /root/.vnc
 ssh-keygen -A
 
-# 3. Setup Desktop Shortcuts (Google Chrome & Terminal)
+# 3. Setup Desktop Shortcuts (Google Chrome, Firefox & Terminal)
 if [ -f /usr/share/applications/google-chrome.desktop ]; then
     cp /usr/share/applications/google-chrome.desktop /root/Desktop/
     chmod +x /root/Desktop/google-chrome.desktop
+fi
+
+if [ -f /usr/share/applications/firefox.desktop ]; then
+    cp /usr/share/applications/firefox.desktop /root/Desktop/
+    chmod +x /root/Desktop/firefox.desktop
 fi
 
 if [ -f /usr/share/applications/xfce4-terminal.desktop ]; then
@@ -101,7 +106,7 @@ ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
 WEB_PORT="${PORT:-8080}"
 echo "======================================================"
-echo "🚀 Ubuntu 24.04 Container (Chrome + RDP + VNC + SSH) is online!"
+echo "🚀 Ubuntu 24.04 Container (Chrome + Firefox + RDP + VNC + SSH) is online!"
 echo "🔑 SSH Server listening on port: 22"
 echo "🖥️ XRDP Server listening on port: 3389"
 echo "🌐 Web Desktop (noVNC) listening on port: $WEB_PORT"
