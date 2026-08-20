@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
+echo "=== Initializing Ubuntu 24.04 Container ==="
+
 # 1. Setup root password
 PASS="${SSH_PASSWORD:-UbuntuRailway2026!}"
 echo "root:$PASS" | chpasswd
-echo "🔒 Root password configured."
+echo "🔒 Root password set."
 
 # 2. Setup SSH Privilege Separation Directory & Host Keys
-mkdir -p /run/sshd /var/run/sshd /root/.ssh
+mkdir -p /run/sshd /var/run/sshd /root/.ssh /var/log/supervisor
 chmod 0755 /run/sshd /var/run/sshd
 chmod 0700 /root/.ssh
 ssh-keygen -A
@@ -16,10 +18,10 @@ ssh-keygen -A
 if [ -n "$SSH_AUTHORIZED_KEYS" ]; then
     echo "$SSH_AUTHORIZED_KEYS" >> /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
-    echo "🔑 Added SSH public key to /root/.ssh/authorized_keys."
+    echo "🔑 Added SSH public key."
 fi
 
-# 4. Clean drop-ins & enforce clear, permissive OpenSSH Server config
+# 4. Write clean sshd_config
 rm -rf /etc/ssh/sshd_config.d/*
 cat << 'EOF' > /etc/ssh/sshd_config
 Port 22
@@ -35,22 +37,22 @@ AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 
-# 5. Setup Web Terminal Ports
-if [ "$PORT" = "22" ] || [ -z "$PORT" ]; then
-    WEB_PORT="8080"
-else
-    WEB_PORT="$PORT"
-fi
+# 5. Create wrapper script for ttyd
+HTTP_PORT="${PORT:-8080}"
+USER_NAME="${WEB_TERMINAL_USER:-root}"
 
-WEB_USER="${WEB_TERMINAL_USER:-root}"
-WEB_PASS="${WEB_TERMINAL_PASSWORD:-$PASS}"
+cat << EOF > /usr/local/bin/start-ttyd.sh
+#!/usr/bin/env bash
+exec /usr/local/bin/ttyd -p ${HTTP_PORT} -c "${USER_NAME}:${PASS}" -W bash
+EOF
+chmod +x /usr/local/bin/start-ttyd.sh
 
-# 6. Generate dynamic supervisord configuration
-cat << EOF > /etc/supervisor/conf.d/supervisord.conf
+# 6. Create static supervisord configuration
+cat << 'EOF' > /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
 user=root
-logfile=/var/log/supervisord.log
+logfile=/var/log/supervisor/supervisord.log
 pidfile=/var/run/supervisord.pid
 
 [program:sshd]
@@ -63,7 +65,7 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:ttyd]
-command=/usr/local/bin/ttyd -p ${WEB_PORT} -c ${WEB_USER}:${WEB_PASS} -W bash
+command=/usr/local/bin/start-ttyd.sh
 autostart=true
 autorestart=true
 stdout_logfile=/dev/stdout
@@ -75,7 +77,7 @@ EOF
 echo "======================================================"
 echo "🚀 Ubuntu 24.04 LTS VPS Container is starting!"
 echo "🔑 SSH Server listening on port: 22"
-echo "📡 Web Terminal listening on port: $WEB_PORT"
+echo "📡 Web Terminal listening on port: $HTTP_PORT"
 echo "======================================================"
 
 exec "$@"
