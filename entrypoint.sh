@@ -45,13 +45,13 @@ AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 
-# 6. Configure XFCE4 Session for XRDP (Windows Remote Desktop)
+# 6. Configure XFCE4 Session for XRDP
 echo "xfce4-session" > /root/.xsession
 chmod +x /root/.xsession
 
 # Configure xrdp.ini
-sed -i 's/3389/3389/g' /etc/xrdp/xrdp.ini
-sed -i 's/max_bpp=32/max_bpp=24/g' /etc/xrdp/xrdp.ini
+sed -i 's/3389/3389/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
+sed -i 's/max_bpp=32/max_bpp=24/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
 
 # 7. Configure VNC Server & XFCE4 Startup
 VNC_PASS="${PASS:0:8}"
@@ -73,6 +73,9 @@ exec startxfce4
 EOF
 chmod +x /root/.vnc/xstartup
 
+# Clean any stale lock and PID files
+rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1 /var/run/xrdp/*.pid /var/run/sshd/*.pid
+
 # 8. Setup noVNC index redirect
 ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
@@ -84,9 +87,14 @@ echo "🖥️ XRDP Server listening on port: 3389"
 echo "🌐 Web Desktop (noVNC) listening on port: $WEB_PORT"
 echo "======================================================"
 
-# 9. Resilient Self-Healing Process Supervisor Loop
-echo "🔄 Starting background self-healing process supervisor..."
+# 9. Clean Initial Service Startup
+/usr/sbin/sshd -D -e &
+/usr/sbin/xrdp-sesman 2>/dev/null || true
+/usr/sbin/xrdp 2>/dev/null || true
+tigervncserver :1 -geometry 1920x1080 -depth 24 -localhost yes -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd 2>/dev/null || true
+websockify --web /usr/share/novnc/ "${WEB_PORT}" localhost:5901 &
 
+# 10. Low-Overhead Memory-Safe Supervisor Loop (Checked every 15 seconds)
 cleanup() {
     echo "Shutting down container gracefully..."
     kill -TERM $(jobs -p) 2>/dev/null || true
@@ -95,35 +103,37 @@ cleanup() {
 trap cleanup SIGTERM SIGINT
 
 while true; do
-    # 1. Keep SSH Server Alive
-    if ! pgrep -x sshd > /dev/null; then
-        echo "🚀 (Re)starting SSH Server on port 22..."
+    # 1. SSH Server Check
+    if ! pgrep -f "/usr/sbin/sshd" > /dev/null; then
+        echo "🚀 Restarting SSH Server..."
         /usr/sbin/sshd -D -e &
     fi
 
-    # 2. Keep XRDP Server Alive
-    if ! pgrep -x xrdp > /dev/null; then
-        echo "🖥️ (Re)starting XRDP Server on port 3389..."
+    # 2. XRDP Check (Check both sesman and xrdp daemon without fork leakage)
+    if ! pgrep -f "/usr/sbin/xrdp-sesman" > /dev/null; then
+        echo "🖥️ Restarting XRDP sesman..."
+        rm -f /var/run/xrdp/xrdp-sesman.pid
         /usr/sbin/xrdp-sesman 2>/dev/null || true
+    fi
+
+    if ! pgrep -f "/usr/sbin/xrdp$" > /dev/null; then
+        echo "🖥️ Restarting XRDP daemon..."
+        rm -f /var/run/xrdp/xrdp.pid
         /usr/sbin/xrdp 2>/dev/null || true
     fi
 
-    # 3. Keep TigerVNC Server Alive
-    if ! pgrep -x Xtigervnc > /dev/null; then
-        echo "🖥️ (Re)starting TigerVNC Server on Display :1..."
+    # 3. TigerVNC Check
+    if ! pgrep -f "Xtigervnc" > /dev/null; then
+        echo "🖥️ Restarting TigerVNC Server..."
         rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1
-        if command -v tigervncserver &>/dev/null; then
-            tigervncserver :1 -geometry 1920x1080 -depth 24 -localhost yes -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd 2>/dev/null || true
-        elif command -v vncserver &>/dev/null; then
-            vncserver :1 -geometry 1920x1080 -depth 24 -localhost yes -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd 2>/dev/null || true
-        fi
+        tigervncserver :1 -geometry 1920x1080 -depth 24 -localhost yes -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd 2>/dev/null || true
     fi
 
-    # 4. Keep Web Desktop (noVNC / websockify) Alive
-    if ! pgrep -f websockify > /dev/null; then
-        echo "🌐 (Re)starting Web Desktop (noVNC) on port ${WEB_PORT}..."
+    # 4. Web Desktop (websockify) Check
+    if ! pgrep -f "websockify" > /dev/null; then
+        echo "🌐 Restarting websockify..."
         websockify --web /usr/share/novnc/ "${WEB_PORT}" localhost:5901 &
     fi
 
-    sleep 5
+    sleep 15
 done
